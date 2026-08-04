@@ -1,0 +1,74 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: agentic_code_reviewer_app
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      - PROJECT_NAME=Agentic Code Reviewer & Guardrail Evaluator
+      - DEBUG=True
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=code_reviewer_db
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - REDIS_URL=redis://redis:6379/0
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - GITHUB_WEBHOOK_SECRET=${GITHUB_WEBHOOK_SECRET}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - reviewer_network
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: agentic_code_reviewer_postgres
+    restart: always
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=code_reviewer_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d code_reviewer_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - reviewer_network
+
+  redis:
+    image: redis:7-alpine
+    container_name: agentic_code_reviewer_redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - reviewer_network
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  reviewer_network:
+    driver: bridge
