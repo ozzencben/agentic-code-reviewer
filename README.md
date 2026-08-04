@@ -219,6 +219,18 @@ curl -X POST "http://localhost:8000/api/v1/review" \
 
 ---
 
+### 2. File Upload Endpoint (`POST /api/v1/review/file`)
+
+Directly upload a `.py` file via Multipart Form-Data (compatible with Swagger UI):
+
+**Request:**
+```bash
+curl -X POST "http://localhost:8000/api/v1/review/file" \
+  -H "accept: application/json" \
+  -H "Content-Type: multipart/form-data" \
+  -F "file=@sample_security_risk.py;type=text/x-python"
+```
+
 ### 2. GitHub Webhook Setup (`POST /api/v1/webhook/github`)
 
 1. Forward your local endpoint using `ngrok` or `smee.io`:

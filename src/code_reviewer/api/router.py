@@ -6,7 +6,7 @@ HTTP REST API endpoint'lerini barındırır.
 
 import logging
 from typing import Optional
-from fastapi import APIRouter, status, HTTPException, Depends, Request, Header
+from fastapi import APIRouter, status, HTTPException, Depends, Request, Header, File, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from code_reviewer.core.schemas import CodeReviewReport, ReviewRequest
@@ -47,6 +47,47 @@ async def review_code_endpoint(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Kod analizi sırasında bir hata oluştu: {str(e)}"
+        )
+
+@api_router.post(
+    "/review/file",
+    response_model=CodeReviewReport,
+    status_code=status.HTTP_200_OK,
+    summary="Python Dosyası Yükleyerek Analiz Et",
+    description="Yüklenen `.py` uzantılı Python kaynak kodu dosyasını LangGraph otonom ajanı ile inceleyerek Pydantic güvenlik raporu döndürür."
+)
+async def review_file_endpoint(
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db)
+) -> CodeReviewReport:
+    """
+    Dosya yükleme (File Upload) üzerinden kod inceleme HTTP endpoint'i.
+    """
+    if not file.filename or not file.filename.endswith(".py"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Sadece .py uzantılı Python dosyaları desteklenmektedir."
+        )
+
+    try:
+        content_bytes = await file.read()
+        code_content = content_bytes.decode("utf-8")
+        report = await analyzer_service.analyze_code(
+            file_name=file.filename,
+            code_content=code_content,
+            db_session=db
+        )
+        return report
+    except UnicodeDecodeError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Yüklenen dosya geçerli bir UTF-8 metin dosyası değil."
+        )
+    except Exception as e:
+        logger.error(f"Dosya analizi hatası: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Dosya analizi sırasında bir hata oluştu: {str(e)}"
         )
 
 @api_router.post(
